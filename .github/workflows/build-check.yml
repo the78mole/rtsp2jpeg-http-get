@@ -17,4 +17,4 @@ jobs:
         with:
           context: .
           push: false
-          tags: ghcr.io/the78mole/devkit-debian-package-build:check
+          tags: ghcr.io/the78mole/rtsp2jpeg-http-get:check

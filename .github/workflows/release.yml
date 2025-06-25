@@ -45,8 +45,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/the78mole/devkit-debian-package-build:latest
-            ghcr.io/the78mole/devkit-debian-package-build:${{ steps.semver.outputs.version_tag }}
+            ghcr.io/the78mole/rtsp2jpeg-http-get:latest
+            ghcr.io/the78mole/rtsp2jpeg-http-get:${{ steps.semver.outputs.version_tag }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

@@ -14,7 +14,6 @@ WORKDIR /app
 
 # Copy project files
 COPY pyproject.toml ./
-COPY .env ./
 COPY src/ ./src/
 
 # Install project with uv
