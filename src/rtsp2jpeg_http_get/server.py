@@ -1,53 +1,59 @@
 import http.server
 import socketserver
-import cv2
 import os
-from docopt import docopt
+import cv2
+from io import BytesIO
 from dotenv import load_dotenv
+from docopt import docopt
 
 DOC = """
 rtsp2jpeg-http-get
 
 Usage:
-  rtsp2jpeg_http_get [--port=PORT] [--url=RTSP_URL] [--path=PATH] [--ffmpeg] [--invalid-cert]
+  rtsp2jpeg_http_get [--port=PORT] [--ffmpeg] [--invalid-cert]
 
 Options:
-  --port=PORT         Port to listen on (overrides $PORT)
-  --url=RTSP_URL      RTSP(S) stream URL (overrides $RTSP_URL)
-  --path=PATH         HTTP path [default: /snapshot.jpg]
+  --port=PORT         Port to listen on
   --ffmpeg            Use FFMPEG backend for OpenCV
   --invalid-cert      Ignore invalid certificates (no effect unless using ffmpeg directly)
 """
 
+def load_snapshot_routes_from_env():
+    routes = {}
+    for key, value in os.environ.items():
+        if key.startswith("SNAPSHOT_") and "::" in value:
+            path, url = value.split("::", 1)
+            routes[path.strip()] = url.strip()
+    return routes
 
-
-class SnapshotHandler(http.server.SimpleHTTPRequestHandler):
+class MultiSnapshotHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        self.rtsp_url = kwargs.pop("rtsp_url")
+        self.routes = kwargs.pop("routes")
         self.backend = kwargs.pop("backend")
-        self.snapshot_path = kwargs.pop("snapshot_path")
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
-        print(f"  Received GET request for: {self.path}")
-        if self.path != self.snapshot_path:
-            self.send_error(404, "Not found")
+        print(f"  Received request for {self.path}")
+        rtsp_url = self.routes.get(self.path)
+        if not rtsp_url:
+            self.send_error(404, f"Snapshot path '{self.path}' not configured")
             return
 
-        print(f"  Capturing snapshot from RTSP stream: {self.rtsp_url}")
-        cap = cv2.VideoCapture(self.rtsp_url, self.backend)
+        print(f"  Fetching snapshot from {rtsp_url}")
+        cap = cv2.VideoCapture(rtsp_url, self.backend)
         if not cap.isOpened():
-            self.send_error(500, "Unable to open RTSP stream")
+            self.send_error(500, f"Unable to open RTSP stream for path '{self.path}'")
             return
 
+        print(f"  Capturing frame from {rtsp_url}")
         ret, frame = cap.read()
         cap.release()
 
         if not ret or frame is None:
-            self.send_error(500, "Failed to capture frame")
+            self.send_error(500, f"Failed to capture frame from '{self.path}'")
             return
 
-        print("  Encoding frame to JPEG")
+        print(f"  Encoding frame to JPEG for {self.path}")
         success, encoded_image = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if not success:
             self.send_error(500, "JPEG encoding failed")
@@ -55,34 +61,36 @@ class SnapshotHandler(http.server.SimpleHTTPRequestHandler):
 
         image_bytes = encoded_image.tobytes()
 
-        print(f"  Sending response with {len(image_bytes)} bytes")
+        print(f"  Sending response for {self.path} ({len(image_bytes)} bytes)")
         self.send_response(200)
         self.send_header("Content-type", "image/jpeg")
         self.send_header("Content-Length", str(len(image_bytes)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(image_bytes)
-        print("  Snapshot sent successfully")
+        print(f"  Response sent for {self.path}")
 
 def run_server():
     load_dotenv()
     args = docopt(DOC)
 
     port = int(args["--port"] or os.getenv("PORT", 8080))
-    rtsp_url = args["--url"] or os.getenv("RTSP_URL")
-    snapshot_path = args["--path"] or os.getenv("SNAPSHOT_PATH", "/snapshot.jpg")
     use_ffmpeg = args["--ffmpeg"] or os.getenv("USE_FFMPEG", "false").lower() == "true"
     invalid_cert = args["--invalid-cert"] or os.getenv("INVALID_CERT", "false").lower() == "true"
 
-    if not rtsp_url:
-        raise ValueError("RTSP_URL must be provided via CLI or .env")
-
     backend = cv2.CAP_FFMPEG if use_ffmpeg else 0
+    routes = load_snapshot_routes_from_env()
+
+    if not routes:
+        raise ValueError("No snapshot paths configured. Define SNAPSHOT_CAMx entries in .env")
+
+    print(f"🚀 Starting rtsp2jpeg-http-get on 0.0.0.0:{port}")
+    for path, url in routes.items():
+        print(f"📸 Serving {path} → {url}")
 
     def handler(*args, **kwargs):
-        return SnapshotHandler(*args, rtsp_url=rtsp_url, backend=backend, snapshot_path=snapshot_path, **kwargs)
+        return MultiSnapshotHandler(*args, routes=routes, backend=backend, **kwargs)
 
-    with socketserver.TCPServer(("", port), handler) as httpd:
-        print(f"📸 http://0.0.0.0:{port}{snapshot_path}")
-        print(f"🔗 Streaming from: {rtsp_url}")
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
         httpd.serve_forever()

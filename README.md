@@ -1,6 +1,6 @@
 # rtsp2jpeg-http-get
 
-> Serve a single JPEG snapshot of an RTSP(S) camera stream on HTTP GET – minimal, memory-efficient, and docker-ready.
+> Serve a single JPEG snapshot of one or more RTSP(S) camera streams on HTTP GET – minimal, memory-efficient, and docker-ready.
 
 ## 🚀 Features
 
@@ -25,8 +25,11 @@ uv pip install -e .
 
 ```env
 PORT=8080
-RTSP_URL=rtsp://user:pass@192.168.178.42:7447/abc123
-SNAPSHOT_PATH=/snapshot.jpg
-USE_FFMPEG=false
-INVALID_CERT=false
+#USE_FFMPEG=true
+INVALID_CERT=true
+
+SNAPSHOT_CAM1=/haustuer.jpg::rtsps://192.168.178.5:7441/someToken123?enableSrtp
+SNAPSHOT_CAM2=/garage.jpg::rtsps://192.168.178.5:7441/someToken456?enableSrtp
+SNAPSHOT_CAM3=/flur.jpg::rtsps://192.168.178.5:7441/someToken789?enableSrtp
+SNAPSHOT_CAM4=/dach.jpg::192.168.178.5:7441/someTokenABC?enableSrtp
 ```
