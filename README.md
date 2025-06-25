@@ -33,3 +33,25 @@ SNAPSHOT_CAM2=/garage.jpg::rtsps://192.168.178.5:7441/someToken456?enableSrtp
 SNAPSHOT_CAM3=/flur.jpg::rtsps://192.168.178.5:7441/someToken789?enableSrtp
 SNAPSHOT_CAM4=/dach.jpg::192.168.178.5:7441/someTokenABC?enableSrtp
 ```
+
+## Docker
+
+```bash
+docker build -t rtsp2jpeg .
+docker run -p 8080:8080 --env-file .env rtsp2jpeg
+# with auto-restarting in case of crash
+docker run --restart unless-stopped -p 8080:8080 --env-file .env rtsp2jpeg
+```
+
+## Docker compose
+
+```yaml
+services:
+  rtsp2jpeg:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    restart: unless-stopped
+```

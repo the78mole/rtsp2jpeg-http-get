@@ -1,0 +1,57 @@
+name: Release Builder Image to GHCR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release version
+        id: semver
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          branch: main
+          tag_prefix: "v"
+          major_pattern: "^(feat|fix|refactor)!:"
+          minor_pattern: "^feat:"
+          search_commit_body: true
+
+      - name: Log generated version
+        run: echo "Version is ${{ steps.semver.outputs.version }}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/the78mole/devkit-debian-package-build:latest
+            ghcr.io/the78mole/devkit-debian-package-build:${{ steps.semver.outputs.version_tag }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.semver.outputs.version_tag }}
+          name: Release ${{ steps.semver.outputs.version_tag }}
+          body: |
+            Automated release based on PR labels/checklist.
