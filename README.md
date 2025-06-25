@@ -23,6 +23,8 @@ uv pip install -e .
 
 ## Configuration via .env file or environment variables
 
+In Unifi Protect, you will find the URLs in the settings section of your video camera. You need to enable the low resolution stream for this to work and copy the address to your environment file as shown here.
+
 ```env
 PORT=8080
 #USE_FFMPEG=true
@@ -55,3 +57,17 @@ services:
       - .env
     restart: unless-stopped
 ```
+
+## Usage
+
+Simply add the URL of the given host and path(s) to your Fritz!Box in:
+
+Telefonie -> Telefoniegeräte -> Live-Bild
+
+Example:
+
+![Fritz!Box Live-Bild](img/fritzbox-live-bild.png)
+
+And on your Phone, you will see:
+
+![Fritz!Box Live-Bild on Phone](img/fritzfon-x6.png)
